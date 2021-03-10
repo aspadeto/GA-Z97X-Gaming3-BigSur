@@ -1,0 +1,310 @@
+# Corrige erros
+
+# Remove os Zeros
+into device label PCI0 code_regex (\s+Zero){2,} removeall_matched;
+
+# Conserta ADBG
+into method label ADBG replace_content begin
+If (CondRefOf (MDBG))\n
+{\n
+    Store (Arg0, MDBG)\n
+    Return\n
+}\n
+Return (Zero)\n
+end;
+
+
+
+#External Fixes
+into_all all code_regex \/\*\sExternal\sreference\s\*\/\s+ removeall_matched;
+into definitionblock code_regex ,\sUnknownObj removeall_matched;
+
+
+# Add the DTGP method
+into method label DTGP remove_entry;
+into definitionblock code_regex . insert begin
+Method (DTGP, 5, NotSerialized)\n
+{\n
+    If (LEqual (Arg0, Buffer (0x10)\n
+            {\n
+                /* 0000 */    0xC6, 0xB7, 0xB5, 0xA0, 0x18, 0x13, 0x1C, 0x44,\n
+                /* 0008 */    0xB0, 0xC9, 0xFE, 0x69, 0x5E, 0xAF, 0x94, 0x9B\n
+            }))\n
+    {\n
+        If (LEqual (Arg1, One))\n
+        {\n
+            If (LEqual (Arg2, Zero))\n
+            {\n
+                Store (Buffer (One) { 0x03 }, Arg4)\n
+                Return (One)\n
+            }\n
+            If (LEqual (Arg2, One))\n
+            {\n
+                Return (One)\n
+            }\n
+        }\n
+    }\n
+	Store (Buffer (One) { 0x00 }, Arg4)\n
+    Return (Zero)\n
+}
+end;
+
+# Add Darwin to the supported operating systems
+into method label _INI code_regex (\s+)(If\s\(_OSI\s\("Windows\s2001"\)\)) replace_matched begin  \n
+						If (_OSI ("Darwin"))\n
+						{\n
+							Store (0x2710, OSYS)\n
+						}\n
+\n
+						$2
+end;
+
+into method label _CRS parent_label PCI0 code_regex DWordField\s\(BUF0,\s\\_SB.PCI0._Y1E._LEN,\sMSLN\) replace_matched begin QWordField (BUF0, \\_SB.PCI0._Y1E._LEN, MSLN) end;
+
+into_all all code_regex Acquire\s\(MUT0,\s0x0FFF\) replace_matched begin Acquire (MUT0, 0xFFFF) end;
+
+into method label _PS0 parent_label NVM0 code_regex (Return\s\(Zero\)) remove_matched;
+into method label _PS0 parent_label NVM0 insert begin Return (Zero) end;
+
+into method label _PS0 parent_label XHC code_regex (Return\s\(Zero\)) remove_matched;
+into method label _PS0 parent_label XHC insert begin Return (Zero) end;
+
+into method label _PS0 parent_label RHUB code_regex (Return\s\(Zero\)) remove_matched;
+into method label _PS0 parent_label RHUB insert begin Return (Zero) end;
+
+into method label _PS3 parent_label NVM0 code_regex (Return\s\(Zero\)) remove_matched;
+into method label _PS3 parent_label NVM0 insert begin Return (Zero) end;
+
+into method label _PS3 parent_label XHC code_regex (Return\s\(Zero\)) remove_matched;
+into method label _PS3 parent_label XHC insert begin Return (Zero) end;
+
+into method label _DSM parent_label SHUB code_regex (Return\s\(Zero\)) remove_matched;
+into method label _DSM parent_label SHUB insert begin Return (Zero) end;
+
+into method label RDCA parent_label SHUB code_regex (Return\s\(Zero\)) remove_matched;
+into method label RDCA insert begin Return (Zero) end;
+
+into method label SPL1 parent_label SHUB code_regex (Return\s\(Zero\)) remove_matched;
+into method label SPL1 insert begin Return (Zero) end;
+
+
+# Dispositivo SATA
+into device label SAT0 set_label begin SATA end;
+into_all all code_regex SAT0 replaceall_matched begin SATA end;
+
+into device label SAT1 remove_entry;
+into_all scope label _SB.PCI0.SAT0.PRT0 set_label begin _SB.PCI0.SATA.PRT0 end;
+into_all scope label _SB.PCI0.SAT0.PRT1 set_label begin _SB.PCI0.SATA.PRT1 end;
+into_all scope label _SB.PCI0.SAT0.PRT2 set_label begin _SB.PCI0.SATA.PRT2 end;
+into_all scope label _SB.PCI0.SAT0.PRT3 set_label begin _SB.PCI0.SATA.PRT3 end;
+
+
+into device label SATA insert begin
+Method (_DSM, 4, NotSerialized)\n
+{\n
+	Store (Package (0x0A) {\n
+		"AAPL,slot-name", "Built In",\n
+		"name", "Intel AHCI Controller",\n
+		"model", Buffer (0x2D) {"Intel 9 Series Chipset Family SATA Controller"},\n
+		"device_type", Buffer (0x0F) {"AHCI Controller"},\n
+		"device-id", Buffer (0x04) {0x02,0x1E,0x00,0x00}\n
+	}, Local0)\n
+	DTGP (Arg0, Arg1, Arg2, Arg3, RefOf (Local0))\n
+	Return (Local0)\n
+}
+end;
+
+
+# DO ARQUIVO:
+
+
+
+# Patches para Gigabyte Series 9
+
+into method label _CRS parent_label ACD0 code_regex CreateByteField\s\(IRB([0-1]) replaceall_matched begin CreateDWordField (IRB%1 end;
+
+into method label _CRS parent_label ACD1 code_regex CreateByteField\s\(RBUF,\s\\ replace_matched begin CreateDWordField (RBUF, \\ end;
+
+into method label _CRS parent_label ACD2 code_regex CreateByteField\s\(RBUF,\s\\ replace_matched begin CreateDWordField (RBUF, \\ end;
+
+into method label _CRS parent_label TPL0 code_regex CreateByteField\s\(SBFI,\s\\ replace_matched begin CreateDWordField (SBFI, \\ end;
+
+into method label _CRS parent_label TPL1 code_regex CreateByteField\s\(SBFI,\s\\ replace_matched begin CreateDWordField (SBFI, \\ end;
+
+into method label _CRS parent_label TPL2 code_regex CreateByteField\s\(IRBU,\s\\ replace_matched begin CreateDWordField (IRBU, \\ end;
+
+into method label _CRS parent_label TPL3 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _CRS parent_label TPD0 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _CRS parent_label TPD1 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _CRS parent_label TPD2 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _CRS parent_label TPD3 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _CRS parent_label TPD7 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _CRS parent_label TPD8 code_regex CreateByteField\s\(SBFI,\s\\_SB replaceall_matched begin CreateDWordField (SBFI, \\_SB end;
+
+into method label _DSM parent_label DFUD code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label DFUD insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD4 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD4 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD9 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD9 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPL0 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPL0 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPL1 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPL1 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPL2 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPL2 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPL3 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPL3 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD0 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD0 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD1 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD1 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD2 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD2 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD3 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD3 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD7 code_regex (Return\s\(Zero\)) remove_matched;
+into method label _DSM parent_label TPD7 insert begin Return (Zero) end;
+
+into method label _DSM parent_label TPD8 code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _DSM parent_label TPD8 insert begin Return (Zero) end;
+
+into method label _HID parent_label _SB.TPM code_regex (Return\s\(Zero\))\s+ remove_matched;
+into method label _HID parent_label _SB.TPM insert begin Return (Zero) end;
+
+
+
+## Method _CRS in ACD0
+#into method label _CRS parent_label ACD0 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label ACD0 remove_entry;
+into device label ACD0 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label ACD0 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in ACD1
+#into method label _CRS parent_label ACD1 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label ACD1 remove_entry;
+into device label ACD1 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label ACD1 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in ACD2
+#into method label _CRS parent_label ACD2 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label ACD2 remove_entry;
+into device label ACD2 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label ACD2 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in SHUB
+#into method label _CRS parent_label SHUB code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label SHUB remove_entry;
+into device label SHUB insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label SHUB code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in DFUD
+#into method label _CRS parent_label DFUD code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label DFUD remove_entry;
+into device label DFUD insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label DFUD code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in TPD4
+#into method label _CRS parent_label TPD4 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label TPD4 remove_entry;
+into device label TPD4 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label TPD4 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in TPD9
+#into method label _CRS parent_label TPD9 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label TPD9 remove_entry;
+into device label TPD9 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label TPD9 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in TPL0
+#into method label _CRS parent_label TPL0 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label TPL0 remove_entry;
+into device label TPL0 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label TPL0 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in TPFU
+#into method label _CRS parent_label TPFU code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label TPFU remove_entry;
+into device label TPFU insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label TPFU code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in TPL1
+#into method label _CRS parent_label TPL1 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label TPL1 remove_entry;
+into device label TPL1 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label TPL1 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in TPL2
+#into method label _CRS parent_label TPL2 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label TPL2 remove_entry;
+into device label TPL2 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label TPL2 code_regex .* replace_matched begin %8 end;
+
+## Method _CRS in GPS2
+#into method label _CRS parent_label GPS2 code_regex ([\s\S]*) store_%8;
+into method label _CRS parent_label GPS2 remove_entry;
+into device label GPS2 insert begin Method (_CRS, 0, Serialized)\n{\n\n} end;
+into method label _CRS parent_label GPS2 code_regex .* replace_matched begin %8 end;
+
+# Add the missing MCHC device
+#into device label MCHC parent_label PCI0 remove_entry;
+into device label PCI0 insert begin
+Device (MCHC)\n
+{\n
+	Name (_ADR, Zero)\n
+}
+end;
+
+# Fix the LPC Device
+into method label _DSM parent_label LPCB remove_entry;
+into device label LPCB insert begin
+Method (_DSM, 4, NotSerialized)\n
+{\n
+	Store (Package (0x02) {\n
+		"compatible", Buffer () {"pci8086,8c44"}\n
+	}, Local0)\n
+	DTGP (Arg0, Arg1, Arg2, Arg3, RefOf (Local0))\n
+	Return (Local0)\n
+}
+end;
+
+
+# Fix the SMBUS to allow for loading of the AppleSMBusController.kext
+into device label BUS0 parent_label SBUS remove_entry;
+into device label SBUS insert begin
+Device (BUS0)\n
+{\n
+	Name (_CID, "smbus")\n
+	Name (_ADR, Zero)\n
+	Device (DVL0)\n
+	{\n
+		Name (_ADR, 0x57)\n
+		Name (_CID, "diagsvault")\n
+		Method (_DSM, 4, NotSerialized)\n
+		{\n
+			Store (Package (0x02) {\n
+				"address", 0x57
+			}, Local0)\n
+			DTGP (Arg0, Arg1, Arg2, Arg3, RefOf (Local0))\n
+			Return (Local0)\n
+		}\n
+	}\n
+}
+end;
